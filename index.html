@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>오늘의 식단 — 목표 기반 음식 추천</title>
+<title>Drjunoh의 다이어트 프로그램</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -29,7 +29,7 @@
 
   /* ---------- header ---------- */
   header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px}
-  h1{font-family:'Gowun Batang',serif;font-size:26px;font-weight:700;letter-spacing:-0.5px}
+  h1{font-family:'Gowun Batang',serif;font-size:21px;font-weight:700;letter-spacing:-0.5px}
   h1 .dot{color:var(--leaf)}
   .date{font-size:13px;color:var(--sub)}
   .head-right{display:flex;align-items:center;gap:10px}
@@ -127,6 +127,35 @@
   .meal-nums{display:flex;gap:14px;margin-top:10px;font-size:12.5px;color:var(--sub)}
   .meal-nums b{color:var(--ink);font-weight:700}
 
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+  .chips-label{font-size:11px;color:#9AA79E;margin-right:2px}
+  .chip{
+    font-size:11.5px;color:var(--leaf-dark);background:#EDF4EE;border-radius:999px;
+    padding:4px 10px;text-decoration:none;transition:background .15s;
+  }
+  .chip:hover{background:#DFEDE2}
+  .chip:focus-visible{outline:2px solid var(--leaf);outline-offset:1px}
+
+  .week-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px}
+  .week-nav button{
+    border:1px solid var(--line);background:var(--card);border-radius:10px;
+    width:34px;height:34px;font-size:13px;color:var(--sub);cursor:pointer;font-family:inherit;
+    transition:all .15s;
+  }
+  .week-nav button:hover:not(:disabled){border-color:var(--leaf);color:var(--leaf-dark)}
+  .week-nav button:disabled{opacity:.3;cursor:default}
+  .week-nav button:focus-visible{outline:2px solid var(--leaf);outline-offset:1px}
+  .week-label{font-size:14px;font-weight:700;min-width:130px;text-align:center}
+  .week-label small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:1px}
+
+  .dl-btn{
+    width:100%;margin-top:14px;padding:13px;font-size:14px;font-weight:500;font-family:inherit;
+    background:#EDF4EE;color:var(--leaf-dark);border:1px solid var(--line);border-radius:14px;cursor:pointer;
+    transition:border-color .15s;
+  }
+  .dl-btn:hover{border-color:var(--leaf)}
+  .dl-btn:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+
   .actions{display:flex;gap:10px;margin-top:18px}
   .actions .primary{margin-top:0;flex:2}
   .ghost{
@@ -143,7 +172,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>오늘의 식단<span class="dot">.</span></h1>
+    <h1>Drjunoh의 다이어트 프로그램<span class="dot">.</span></h1>
     <div class="head-right">
       <span class="date" id="today"></span>
       <button class="home-btn hidden" id="homeBtn" onclick="goHome()">← 처음으로</button>
@@ -211,16 +240,23 @@
       </div>
     </div>
 
+    <div class="week-nav">
+      <button id="prevWeek" onclick="moveWeek(-1)" aria-label="이전 주">◀</button>
+      <span class="week-label" id="weekLabel"></span>
+      <button id="nextWeek" onclick="moveWeek(1)" aria-label="다음 주">▶</button>
+    </div>
     <div class="day-tabs" id="dayTabs" role="tablist" aria-label="요일 선택"></div>
 
     <div id="meals"></div>
 
+    <button class="dl-btn" onclick="downloadPlan()">📥 전체 기간 식단표 다운로드 (엑셀용)</button>
+
     <div class="actions">
-      <button class="primary" onclick="recommendAll()">일주일 다시 추천</button>
+      <button class="primary" onclick="recommendAll()">전체 식단 다시 추천</button>
       <button class="ghost" onclick="showSetup()">목표 수정</button>
     </div>
 
-    <p class="note">권장 칼로리는 Mifflin-St Jeor 공식 기반의 일반적인 추정치이며 참고용입니다.<br>건강 상태에 따른 식단은 전문가와 상담하세요.</p>
+    <p class="note">권장 칼로리는 Mifflin-St Jeor 공식 기반의 일반적인 추정치이며 참고용입니다.<br>건강 상태에 따른 식단은 전문가와 상담하세요.<br>재료 버튼은 쿠팡 검색 결과로 연결됩니다.</p>
   </section>
 </div>
 
@@ -376,8 +412,10 @@ function pickMenu(slotDef, excludeSet){
   return top[Math.floor(Math.random()*top.length)];
 }
 function recommendAll(){
+  const totalWeeks = Math.max(1, Math.min(profile.expectedWeeks || profile.weeks || 12, 52));
+  const totalDays = totalWeeks * 7;
   week = [];
-  for(let d=0; d<7; d++){
+  for(let d=0; d<totalDays; d++){
     const day = {};
     SLOTS.forEach(s=>{
       const recent = new Set();
@@ -404,20 +442,37 @@ function selectDay(d){
   render();
 }
 function renderTabs(){
-  const box = document.getElementById('dayTabs');
+  const total = week.length;
+  const totalWeeks = Math.ceil(total/7);
+  const wk = Math.floor(curDay/7);
   const now = new Date();
   const W = ['일','월','화','수','목','금','토'];
+
+  document.getElementById('weekLabel').innerHTML =
+    `${wk+1}주차<small>총 ${totalWeeks}주 식단</small>`;
+  document.getElementById('prevWeek').disabled = wk===0;
+  document.getElementById('nextWeek').disabled = wk===totalWeeks-1;
+
+  const box = document.getElementById('dayTabs');
   box.innerHTML = '';
-  for(let i=0;i<7;i++){
+  for(let i=wk*7; i<Math.min(wk*7+7, total); i++){
     const dt = new Date(now.getTime() + i*86400000);
     const b = document.createElement('button');
     b.setAttribute('role','tab');
-    b.textContent = i===0 ? '오늘' : W[dt.getDay()];
-    b.title = `${dt.getMonth()+1}/${dt.getDate()}`;
+    const label = i===0 ? '오늘' : W[dt.getDay()];
+    b.innerHTML = `${label}<span style="display:block;font-size:10px;font-weight:400;opacity:.7">${dt.getMonth()+1}/${dt.getDate()}</span>`;
     if(i===curDay) b.classList.add('on');
     b.onclick = ()=>selectDay(i);
     box.appendChild(b);
   }
+}
+function moveWeek(dir){
+  const totalWeeks = Math.ceil(week.length/7);
+  let wk = Math.floor(curDay/7) + dir;
+  wk = Math.max(0, Math.min(totalWeeks-1, wk));
+  curDay = Math.min(wk*7, week.length-1);
+  renderTabs();
+  render();
 }
 
 /* ================= 렌더 ================= */
@@ -445,7 +500,8 @@ function render(){
         <span>탄 <b>${m.c}</b>g</span>
         <span>단 <b>${m.p}</b>g</span>
         <span>지 <b>${m.f}</b>g</span>
-      </div>`;
+      </div>
+      <div class="chips"><span class="chips-label">재료 구매</span>${ingredientChips(m.items)}</div>`;
     box.appendChild(el);
   });
 
@@ -479,6 +535,58 @@ function render(){
     document.getElementById('goalSub').textContent =
       `주당 약 ${profile.goal==='lose'?'-':'+'}${wk}kg · ${GOAL_LABEL[profile.goal]} · ${profile.style} 식단`;
   }
+}
+
+/* ================= 재료 쿠팡 연결 =================
+   구성 문자열("오트밀 50g · 바나나 …")을 재료 단위로 나누고
+   수량·단위를 제거해 쿠팡 검색어로 변환 */
+function ingredientQuery(t){
+  return t
+    .replace(/\(.*?\)/g,'')
+    .replace(/[½⅓¼]/g,'')
+    .replace(/[0-9]+(\.[0-9]+)?\s*(g|kg|ml|L|개|장|알|스푼|줄|팩|잔|모|공기|그릇|조각)?/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function ingredientChips(items){
+  return items.split('·').map(t=>{
+    const q = ingredientQuery(t);
+    if(!q) return '';
+    const url = 'https://www.coupang.com/np/search?q=' + encodeURIComponent(q);
+    return `<a class="chip" href="${url}" target="_blank" rel="noopener noreferrer">${q} ↗</a>`;
+  }).join('');
+}
+
+/* ================= 식단표 다운로드 =================
+   전체 기간을 엑셀에서 바로 열리는 CSV(UTF-8 BOM)로 저장 */
+function downloadPlan(){
+  if(!week.length) return;
+  const W = ['일','월','화','수','목','금','토'];
+  const start = new Date();
+  const rows = [['주차','날짜','요일','끼니','메뉴','구성','kcal','탄수화물(g)','단백질(g)','지방(g)']];
+  week.forEach((day,d)=>{
+    const dt = new Date(start.getTime() + d*86400000);
+    const date = `${dt.getMonth()+1}/${dt.getDate()}`;
+    const wk = Math.floor(d/7)+1;
+    const tot = {k:0,c:0,p:0,f:0};
+    SLOTS.forEach(s=>{
+      const m = day[s.id];
+      tot.k+=m.k; tot.c+=m.c; tot.p+=m.p; tot.f+=m.f;
+      rows.push([wk, date, W[dt.getDay()], s.label, m.n, m.items, m.k, m.c, m.p, m.f]);
+    });
+    rows.push([wk, date, W[dt.getDay()], '하루 합계', '', '', tot.k, tot.c, tot.p, tot.f]);
+  });
+  const csv = '\uFEFF' + rows.map(r =>
+    r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+  ).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const tw = profile.targetWeight, cw = profile.weight;
+  a.download = `식단표_${cw}kg-${tw}kg_${Math.ceil(week.length/7)}주.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 
 /* ================= 화면 전환 & 저장 ================= */
